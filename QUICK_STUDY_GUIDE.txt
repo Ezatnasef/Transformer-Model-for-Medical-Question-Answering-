@@ -1,0 +1,358 @@
+# QUICK STUDY GUIDE: Transformer Self-Attention for Medical QA
+## Exam/Presentation Preparation Summary
+
+---
+
+## PART 1: KEY CONCEPTS TO MEMORIZE
+
+### 1. What is a Transformer?
+
+Architecture composed of:
+- Encoder: Processes input (question)
+- Decoder: Generates output (answer)
+- Each uses self-attention and feed-forward networks
+
+### 2. Self-Attention Formula
+
+```
+Attention(Q, K, V) = softmax(Q·K^T / √d_k) · V
+```
+
+**Memorization tip:** Think of it as "How much attention does each query pay to each key?"
+
+### 3. Four Key Components
+
+| Component | Purpose | Input Shape | Output Shape |
+|-----------|---------|------------|--------------|
+| Q (Query) | What am I looking for? | (seq_len, d_model) | (seq_len, d_model) |
+| K (Key) | What can I provide? | (seq_len, d_model) | (seq_len, d_model) |
+| V (Value) | My content | (seq_len, d_model) | (seq_len, d_model) |
+| Softmax | Normalize weights | (seq_len, seq_len) | (seq_len, seq_len) |
+
+### 4. Why √d_k Scaling?
+
+Without scaling:
+- Large d_k → large dot products → small softmax gradients → slow learning
+
+With scaling:
+- Dot products normalized → better gradient flow → faster convergence
+
+### 5. Medical QA Context
+
+Question: "What are the symptoms of diabetes?"
+
+- Query: What am I asking?
+- Key: What information is available?
+- Value: The actual content from medical texts
+- Attention: How to match question to relevant symptoms
+
+---
+
+## PART 2: STEP-BY-STEP PROCESS
+
+### Step 1: Tokenization
+```
+Input:  "What are the symptoms of diabetes?"
+Output: ["What", "are", "the", "symptoms", "of", "diabetes", "?"]
+```
+
+### Step 2: Embedding
+```
+"What" → [0.23, -0.45, 0.67, ..., 0.12]  (64-dim vector)
+"are"  → [0.18, 0.32, -0.54, ..., -0.08]
+...
+```
+
+### Step 3: Compute Attention Scores
+```
+For token "symptoms":
+- Score vs "What": 0.78 (related - query term)
+- Score vs "of": 0.92 (high - preposition linking to entity)
+- Score vs "diabetes": 0.88 (high - target entity)
+```
+
+### Step 4: Apply Softmax
+```
+Raw scores: [0.78, 0.92, 0.88, ...]
+Softmax:    [0.22, 0.26, 0.24, ...] (sum = 1.0)
+```
+
+### Step 5: Weight and Sum Values
+```
+Output = 0.22·V_what + 0.26·V_of + 0.24·V_diabetes + ...
+```
+
+---
+
+## PART 3: CRITICAL INSIGHTS FOR EXAMS
+
+### Question 1: "Why is attention better than RNNs?"
+
+**Answer structure:**
+1. RNNs process sequentially (slow, gradient problems)
+2. Attention processes all tokens in parallel (fast)
+3. Attention has direct paths between distant tokens (RNNs need many steps)
+4. Attention weights are interpretable (can visualize what model attends to)
+
+### Question 2: "Explain encoder-decoder attention"
+
+**Answer structure:**
+1. Encoder processes question (self-attention on question tokens)
+2. Decoder looks at passage (decoder query × encoder output keys/values)
+3. Cross-attention points decoder to relevant passage sections
+4. Decoder generates answer using this context
+
+### Question 3: "What does high attention weight mean?"
+
+**Answer:** Token i considers token j very important/relevant for its representation.
+
+Example: "symptoms" attending to "diabetes" (weight 0.92) means the model learned these are semantically associated.
+
+### Question 4: "Why use multiple heads?"
+
+**Answer:** Each head learns different types of relationships
+- Head 1: Entity relationships (symptoms ↔ diabetes)
+- Head 2: Syntactic relationships (article ↔ noun)
+- Head 3: Domain relationships (medical terms)
+- Head 4: Question structure (question words ↔ target)
+
+Parallel heads capture diverse patterns simultaneously.
+
+### Question 5: "Describe the decoder's generation process"
+
+**Answer (step-by-step):**
+1. Token 1: Model generates "Increased" (p=0.75)
+2. Token 2: Model generates "thirst" (p=0.80) given "Increased"
+3. Token 3: Model generates "urination" (p=0.60) given "Increased thirst"
+4. Token 4: Model generates "fatigue" (p=0.70) given previous tokens
+5. Stop when model outputs special END token
+
+This is auto-regressive (each step depends on previous outputs).
+
+---
+
+## PART 4: COMMON INTERVIEW QUESTIONS
+
+### Q: "What's the time complexity of self-attention?"
+
+A: O(n²) where n = sequence length
+- Compute all pairwise attention scores: n² comparisons
+- vs RNN: O(n) sequential, but can't parallelize
+
+### Q: "How would you adapt this for longer documents?"
+
+A: Multiple approaches:
+1. **Sliding window**: Only attend to nearby tokens
+2. **Sparse attention**: Specific patterns of attention
+3. **Hierarchical**: Process paragraphs, then chapters
+4. **Compression**: Summarize distant context
+
+### Q: "How does positional encoding work?"
+
+A:
+```
+PE(pos, 2i) = sin(pos / 10000^(2i/d))
+PE(pos, 2i+1) = cos(pos / 10000^(2i/d))
+```
+
+Each position gets unique sinusoidal pattern. Frequencies vary by dimension, allowing model to learn position information.
+
+### Q: "Can you compare attention vs LSTM?"
+
+| Aspect | LSTM | Attention |
+|--------|------|-----------|
+| Speed | Sequential | Parallel |
+| Long-range | Gradient problems | Direct connection |
+| Interpretability | Hidden state | Attention weights |
+| Parameters | Fewer gates | More (Q,K,V projects) |
+
+---
+
+## PART 5: FORMULA CHEAT SHEET
+
+### Key Formulas
+
+**Attention:**
+```
+A = softmax(Q·K^T / √d_k)
+Output = A·V
+```
+
+**Softmax (stable):**
+```
+softmax(x_i) = exp(x_i - max(x)) / Σ exp(x_j - max(x))
+```
+
+**Multi-head:**
+```
+head_i = Attention(X·W_i^Q, X·W_i^K, X·W_i^V)
+MultiHead = Concat(head_1,...,head_h)·W^O
+```
+
+**Positional Encoding:**
+```
+PE(pos, 2i) = sin(pos/10000^(2i/d))
+PE(pos, 2i+1) = cos(pos/10000^(2i/d))
+```
+
+---
+
+## PART 6: PRACTICE PROBLEMS
+
+### Problem 1: Attention Matrix Interpretation
+
+Given attention matrix:
+```
+        What   are    the   symptoms   of   diabetes
+What    0.20   0.10   0.15    0.25    0.15   0.15
+are     0.15   0.25   0.12    0.18    0.14   0.16
+symptoms 0.10  0.08   0.12    0.30    0.28   0.12
+```
+
+**Questions:**
+a) Which relationship is strongest?
+   → "symptoms" → "of" (0.28) or "symptoms" → "symptoms" (0.30)
+
+b) Why is "symptoms" self-attention high?
+   → It's the key concept being queried
+
+c) Is "What" attending properly?
+   → Relatively distributed; could improve
+
+### Problem 2: Computation Steps
+
+Question: Walk through attention computation for "symptoms" attending to all tokens.
+
+**Solution outline:**
+1. Get embedding of "symptoms": e_s = 64-dim vector
+2. Compute query: q_s = e_s · W_q
+3. Compute keys: k_1...k_6 = [embeddings] · W_k
+4. Compute scores: [q_s · k_1, q_s · k_2, ...] / √d_k
+5. Apply softmax: normalized scores summing to 1.0
+6. Weight values: Σ(weight_i · v_i)
+
+### Problem 3: Why Medical Domain?
+
+Why is attention especially useful for medical QA?
+
+**Answer points:**
+- Complex terminology relationships (drugs ↔ conditions)
+- Long-range dependencies (symptoms described far from condition)
+- Need for interpretability (doctors want to know which info was used)
+- Entity relationships (patients ↔ treatments ↔ outcomes)
+
+---
+
+## PART 7: EXAM TIPS
+
+### What to Memorize
+- ✓ Self-attention formula
+- ✓ Why √d_k is needed
+- ✓ 4-step process (Q,K,V → scores → softmax → weighted sum)
+- ✓ Difference between self-attention and cross-attention
+- ✓ Benefits over RNN/CNN
+
+### What You Can Derive
+- ✓ Attention matrix interpretation
+- ✓ Why particular tokens attend to others
+- ✓ How to explain high/low attention weights
+- ✓ Modifications for different applications
+
+### Common Mistake to Avoid
+- ✗ Confusing attention weight with importance
+  (Weight shows what model uses, not necessarily correct)
+- ✗ Thinking softmax creates "probability"
+  (It's a weight distribution, not probability of truth)
+- ✗ Assuming all attention is interpretable
+  (Some patterns are learned artifacts)
+
+---
+
+## PART 8: QUICK REFERENCE
+
+### Medical QA Example
+
+```
+Question: "What are the symptoms of diabetes?"
+├─ Tokenization: 6 tokens
+├─ Embeddings: 64-dimensional vectors
+├─ Attention Heads: 4 parallel heads
+├─ Key Relationships:
+│  ├─ "What" (query) → "symptoms" (target)
+│  ├─ "symptoms" → "diabetes" (semantic link)
+│  └─ "of" → both (grammatical connector)
+└─ Output: Question representation ready for context matching
+
+Passage: "Diabetes is a chronic condition characterized by high 
+         blood sugar levels. Common symptoms include increased 
+         thirst, frequent urination, extreme fatigue, and 
+         blurred vision."
+├─ Cross-attention: Decoder query matches passage content
+├─ Focus on: "symptoms include" and symptom list
+└─ Answer generation: "Increased thirst, urination, fatigue"
+
+Final answer confidence: 0.71 (average of 0.75, 0.80, 0.60, 0.70)
+```
+
+---
+
+## FINAL CHECKLIST
+
+Before your exam/presentation:
+
+□ Understand self-attention formula by heart
+□ Can explain why attention > RNN/CNN for this task
+□ Can walk through medical QA example step-by-step
+□ Understand Q, K, V roles
+□ Know why √d_k scaling is important
+□ Can interpret attention matrices
+□ Understand encoder-decoder vs self-attention
+□ Can explain multi-head attention
+□ Know token generation is auto-regressive
+□ Familiar with positional encoding concept
+
+---
+
+## ADDITIONAL RESOURCES
+
+**To Deepen Understanding:**
+- Run the code yourself (transformer_attention_numpy.py)
+- Modify the question and observe attention changes
+- Try different num_heads values
+- Visualize attention as heatmap (see guide for code)
+
+**Related Concepts to Study:**
+- Feed-forward networks in Transformers
+- Layer normalization
+- Residual connections
+- Pre-training vs fine-tuning
+- Domain-specific fine-tuning for medical texts
+
+**Papers to Read:**
+1. Vaswani et al. (2017) - Attention is All You Need [MUST READ]
+2. Devlin et al. (2018) - BERT
+3. Lee et al. (2020) - SciBERT (for scientific QA)
+
+---
+
+## SCORE IMPROVEMENT TIPS
+
+**For getting A+ on exam:**
+1. Draw attention matrix example from scratch
+2. Explain why it's better than RNNs (3+ reasons)
+3. Discuss medical domain-specific benefits
+4. Mention limitations (computational cost, interpretability challenges)
+5. Propose extensions (longer documents, multi-modal data)
+
+**Common high-score answers include:**
+- Explicit reference to medical safety (explainability)
+- Understanding of gradient flow (why √d_k matters)
+- Knowledge of training (supervised fine-tuning on QA)
+- Real-world considerations (latency, deployment)
+
+---
+
+**Last updated:** April 2026
+**Suitable for:** Exam preparation, interview review, teaching others
+**Time to study:** 30-45 minutes for basic understanding
+**Time to master:** 2-3 hours with code practice
